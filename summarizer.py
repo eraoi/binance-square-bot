@@ -1,165 +1,175 @@
 from __future__ import annotations
 
-import os
+from datetime import datetime
 from typing import Iterable
 
 from news import NewsItem
 
 
-SYSTEM_PROMPT = """
-你是一名面向 Binance Square 的中文全球市场新闻编辑。
-
-你的任务是把提供的英文新闻材料，整理成一篇可直接发布到币安广场的中文每日市场简报。
-
-写作要求：
-
-1. 全文使用自然中文。
-2. 英文标题不要原样照搬，要理解后重新概括。
-3. 优先选择真正重要的事件，重点覆盖：
-   - BTC、ETH、加密市场
-   - 美国经济、美联储、美元、美债、通胀
-   - 全球股市、黄金、原油
-   - 重大地缘政治
-   - AI、芯片、科技行业
-   - 加密监管与机构资金
-4. 删除娱乐、地方小新闻、影响很小的政治新闻。
-5. 不要为了凑数量强行保留低价值新闻。
-6. 每条新闻使用这个逻辑：
-   “发生了什么”
-   然后说明：
-   “为什么重要 / 对市场可能有什么影响”
-7. 不要机械重复“关注其对BTC/ETH的影响”之类模板句。
-8. 根据不同新闻具体分析：
-   - 对 BTC / ETH
-   - 对美元
-   - 对美债收益率
-   - 对黄金
-   - 对原油
-   - 对全球风险偏好
-9. 分清事实与分析。
-   已经发生的事实直接陈述。
-   对未来影响使用“可能、值得关注、市场或将”等表达。
-10. 禁止喊单、投资承诺、预测具体涨跌目标。
-11. 不要夸大新闻重要性。
-12. 如果多篇新闻实际上讲同一个事件，要合并。
-13. 最终保留 5 到 7 条最值得看的新闻。
-14. 每条控制在 80 到 160 个中文字符左右。
-15. 总长度适合手机阅读，尽量控制在 1500 到 2200 个中文字符。
-16. 排版清楚，但不要使用 Markdown 表格。
-17. 可以使用少量适合 Binance Square 的 emoji。
-
-输出结构严格按照下面的风格：
-
-🌍 8月XX日全球与加密市场速览
-
-1. 【简洁中文标题】
-发生了什么……
-市场影响：……
-
-2. 【简洁中文标题】
-发生了什么……
-市场影响：……
-
-……
-
-📊 今日市场情绪：偏多 / 中性 / 偏空
-
-用 1 到 2 句话解释判断理由。
-
-🔎 今日最值得关注
-用一句话指出今天最关键的市场主线。
-
-最后提出一个适合币安广场评论区讨论的问题。
-
-来源：Reuters、AP、BBC、CoinDesk 等实际使用到的来源
-
-额外要求：
-不要出现英文新闻标题堆砌。
-不要逐条复制摘要。
-不要写“以下是新闻总结”。
-不要输出任何关于自己如何分析的说明。
-"""
+def contains(text: str, words: list[str]) -> bool:
+    text = text.lower()
+    return any(word.lower() in text for word in words)
 
 
-def make_material(items: Iterable[NewsItem]) -> str:
-    chunks = []
+def zh_title(item: NewsItem) -> str:
+    text = f"{item.title} {item.summary}".lower()
 
-    for idx, item in enumerate(items, 1):
-        chunks.append(
-            f"""
-新闻 {idx}
-来源：{item.source}
-标题：{item.title}
-摘要：{item.summary}
-链接：{item.link}
-发布时间：{item.published}
-""".strip()
-        )
+    if contains(text, ["bitcoin", "btc"]):
+        if contains(text, ["77k", "support", "rally", "surge", "jump"]):
+            return "BTC重回关键价格区间，市场关注后续支撑"
+        if contains(text, ["etf"]):
+            return "比特币ETF资金动向成为市场焦点"
+        return "比特币市场出现新的重要变化"
 
-    return "\n\n".join(chunks)
+    if contains(text, ["ethereum", "eth"]):
+        return "以太坊市场出现新的资金与价格变化"
 
+    if contains(text, ["fed", "federal reserve", "interest rate", "rates"]):
+        return "美联储政策预期继续影响全球风险资产"
 
-def summarize_with_openai(items: list[NewsItem]) -> str | None:
-    api_key = os.getenv("OPENAI_API_KEY")
+    if contains(text, ["inflation", "cpi", "ppi"]):
+        return "通胀数据继续牵动利率与风险资产定价"
 
-    if not api_key:
-        print("[warn] OPENAI_API_KEY not found, using fallback mode.")
-        return None
+    if contains(text, ["oil", "crude", "pipeline", "opec"]):
+        return "能源市场出现新变化，油价风险值得关注"
 
-    try:
-        from openai import OpenAI
+    if contains(text, ["tariff", "trade war", "trade"]):
+        return "贸易政策出现新变化，全球市场关注后续影响"
 
-        client = OpenAI(api_key=api_key)
+    if contains(text, ["war", "missile", "attack", "ceasefire", "iran", "israel", "ukraine", "russia"]):
+        return "地缘局势继续升温，避险情绪受到关注"
 
-        model = os.getenv(
-            "OPENAI_MODEL",
-            "gpt-5-mini"
-        )
+    if contains(text, ["ai", "artificial intelligence", "nvidia", "chip", "semiconductor"]):
+        return "AI与芯片行业出现新进展"
 
-        response = client.responses.create(
-            model=model,
-            instructions=SYSTEM_PROMPT,
-            input=make_material(items),
-        )
+    if contains(text, ["gold"]):
+        return "黄金维持强势，避险资金动向值得关注"
 
-        text = (response.output_text or "").strip()
+    if contains(text, ["stablecoin", "crypto regulation", "sec", "cftc"]):
+        return "加密监管与行业政策出现新进展"
 
-        if not text:
-            print("[warn] OpenAI returned empty text.")
-            return None
-
-        return text
-
-    except Exception as exc:
-        print(f"[warn] OpenAI summarization failed: {exc}")
-        return None
+    return item.title[:50]
 
 
-def fallback_summary(items: list[NewsItem]) -> str:
-    lines = [
-        "🌍 今日全球与加密市场速览",
-        "",
-        "AI 摘要暂时不可用，以下为自动筛选的新闻标题：",
-        ""
-    ]
+def event_summary(item: NewsItem) -> str:
+    text = f"{item.title} {item.summary}".lower()
 
-    for idx, item in enumerate(items[:6], 1):
-        lines.append(f"{idx}. {item.title}")
-        lines.append(f"来源：{item.source}")
-        lines.append("")
+    if contains(text, ["bitcoin", "btc"]):
+        return "比特币近期价格和资金表现出现明显变化，市场正在重新评估关键支撑位与后续风险偏好。"
 
-    lines.append("📊 今日市场情绪：中性")
-    lines.append("当前请结合宏观流动性、地缘风险和加密市场资金流继续观察。")
-    lines.append("")
-    lines.append("你今天最关注哪个市场变量？")
+    if contains(text, ["ethereum", "eth"]):
+        return "以太坊近期价格和资金流出现变化，市场开始重新关注ETH相对BTC的表现。"
 
-    return "\n".join(lines)
+    if contains(text, ["fed", "federal reserve", "interest rate", "rates"]):
+        return "市场正在重新评估美联储未来利率路径，美元和美债收益率也因此受到影响。"
+
+    if contains(text, ["inflation", "cpi", "ppi"]):
+        return "最新通胀相关消息重新影响市场对利率和货币政策的预期。"
+
+    if contains(text, ["oil", "crude", "pipeline", "opec"]):
+        return "能源市场出现新的供应或政策变化，油价和通胀预期可能随之波动。"
+
+    if contains(text, ["tariff", "trade war", "trade"]):
+        return "最新贸易政策出现调整，相关国家之间的关税与产业链预期受到市场关注。"
+
+    if contains(text, ["war", "missile", "attack", "ceasefire", "iran", "israel", "ukraine", "russia"]):
+        return "最新地缘事件继续影响能源、黄金和全球避险情绪。"
+
+    if contains(text, ["ai", "artificial intelligence", "nvidia", "chip", "semiconductor"]):
+        return "AI和芯片产业继续出现新的资本开支、产品或需求变化。"
+
+    if contains(text, ["gold"]):
+        return "黄金近期保持强势，反映部分资金仍在寻求避险和对冲。"
+
+    if item.summary:
+        summary = item.summary.strip()
+        if len(summary) > 120:
+            summary = summary[:120] + "。"
+        return summary
+
+    return "这条新闻正在受到市场关注，后续发展值得继续观察。"
+
+
+def market_impact(item: NewsItem) -> str:
+    text = f"{item.title} {item.summary}".lower()
+
+    if contains(text, ["bitcoin", "btc", "ethereum", "eth"]):
+        return "市场影响：短线可能直接影响BTC与ETH的资金流和波动率，同时带动整体加密市场风险偏好。"
+
+    if contains(text, ["fed", "interest rate", "inflation", "cpi", "ppi", "jobs", "gdp"]):
+        return "市场影响：如果利率预期继续偏高，美元和美债收益率可能维持强势，并压制高波动风险资产；若预期转向宽松，则可能利好加密资产和成长股。"
+
+    if contains(text, ["oil", "crude", "pipeline", "opec"]):
+        return "市场影响：油价上涨可能重新推高通胀预期，并通过利率和风险偏好间接影响BTC、科技股和黄金。"
+
+    if contains(text, ["war", "missile", "attack", "ceasefire", "iran", "israel", "ukraine", "russia"]):
+        return "市场影响：地缘风险升温通常利好黄金和避险资产，同时可能压制全球风险偏好，并放大能源价格波动。"
+
+    if contains(text, ["tariff", "trade war", "trade"]):
+        return "市场影响：贸易摩擦可能推高成本与通胀预期，并影响美元、股票和加密市场风险偏好。"
+
+    if contains(text, ["ai", "artificial intelligence", "nvidia", "chip", "semiconductor"]):
+        return "市场影响：AI投资和芯片需求继续影响科技股估值，也会间接影响全球风险资金对高成长资产的配置。"
+
+    if contains(text, ["gold"]):
+        return "市场影响：黄金走强通常意味着避险需求或美元预期发生变化，也值得观察其与BTC之间的资金轮动。"
+
+    return "市场影响：这件事可能通过全球风险偏好、美元或资金流变化间接影响加密市场。"
+
+
+def sentiment(items: list[NewsItem]) -> tuple[str, str]:
+    bullish = 0
+    bearish = 0
+
+    for item in items:
+        text = f"{item.title} {item.summary}".lower()
+
+        if contains(text, ["rally", "surge", "jump", "gain", "approval", "inflow"]):
+            bullish += 1
+
+        if contains(text, ["war", "attack", "inflation", "tariff", "selloff", "drop", "sanction"]):
+            bearish += 1
+
+    if bullish >= bearish + 2:
+        return "偏多", "风险资产动能相对更强，市场资金情绪有所改善，但仍需关注宏观和地缘变量。"
+
+    if bearish >= bullish + 2:
+        return "偏空", "宏观或地缘风险占据主导，风险偏好受到压制，加密市场短线波动可能加大。"
+
+    return "中性", "当前多空因素交织，市场仍在等待更明确的宏观和资金面信号。"
 
 
 def build_post(items: list[NewsItem]) -> str:
-    ai_result = summarize_with_openai(items)
+    now = datetime.utcnow()
+    month = now.month
+    day = now.day
 
-    if ai_result:
-        return ai_result
+    selected = items[:6]
 
-    return fallback_summary(items)
+    lines = [
+        f"🌍 {month}月{day}日全球与加密市场速览",
+        ""
+    ]
+
+    for idx, item in enumerate(selected, 1):
+        lines.append(f"{idx}. {zh_title(item)}")
+        lines.append(event_summary(item))
+        lines.append(market_impact(item))
+        lines.append(f"来源：{item.source}")
+        lines.append("")
+
+    mood, reason = sentiment(selected)
+
+    lines.append(f"📊 今日市场情绪：{mood}")
+    lines.append(reason)
+    lines.append("")
+
+    if selected:
+        first = zh_title(selected[0])
+        lines.append("🔎 今日最值得关注")
+        lines.append(f"今天最值得跟踪的主线是：{first}。")
+        lines.append("")
+
+    lines.append("你觉得今天最可能主导BTC波动的是宏观、地缘局势，还是加密市场自身资金流？")
+
+    return "\n".join(lines)
