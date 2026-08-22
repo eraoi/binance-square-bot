@@ -139,18 +139,27 @@ def score_item(item: NewsItem) -> int:
     return score
 
 
-def select_top(items: list[NewsItem], limit: int = 8) -> list[NewsItem]:
+def select_top(items: list[NewsItem], limit: int = 6) -> list[NewsItem]:
     ranked = sorted(items, key=score_item, reverse=True)
+
     selected = []
     source_counts = {}
 
     for item in ranked:
-        count = source_counts.get(item.source, 0)
-        if count >= 3:
+        if score_item(item) <= 0:
             continue
+
+        count = source_counts.get(item.source, 0)
+
+        if count >= 2:
+            continue
+
         selected.append(item)
         source_counts[item.source] = count + 1
+
         if len(selected) >= limit:
             break
+
+    return selected
 
     return selected
