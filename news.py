@@ -107,15 +107,33 @@ def score_item(item: NewsItem) -> int:
     text = f" {item.title.lower()} {item.summary.lower()} "
     score = 0
 
-    for category, words in KEYWORDS.items():
-        for word in words:
-            if word in text:
-                score += 3 if category in ("crypto", "macro") else 2
+    high_value = [
+        "bitcoin", "btc", "ethereum", "eth",
+        "fed", "federal reserve", "inflation", "interest rate",
+        "oil", "gold", "tariff", "sanction",
+        "iran", "israel", "ukraine", "russia",
+        "ai", "nvidia", "chip", "semiconductor",
+        "stablecoin", "etf", "sec", "cftc"
+    ]
 
-    # Prefer substantive summaries and well-known sources.
-    if len(item.summary) > 120:
-        score += 1
+    low_value = [
+        "celebrity", "activist", "local election",
+        "football", "movie", "music", "crime",
+        "fashion", "royal family"
+    ]
+
+    for word in high_value:
+        if word in text:
+            score += 4
+
+    for word in low_value:
+        if word in text:
+            score -= 8
+
     if item.source in ("BBC World", "The Guardian World", "CoinDesk"):
+        score += 1
+
+    if len(item.summary) > 120:
         score += 1
 
     return score
