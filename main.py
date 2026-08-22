@@ -4,9 +4,9 @@ import argparse
 import os
 import sys
 
-from .news import fetch_all, select_top
-from .summarizer import build_post
-from .binance_square import publish_text, BinanceSquareError
+from news import fetch_all, select_top
+from summarizer import build_post
+from binance_square import publish_text, BinanceSquareError
 
 
 def parse_args():
