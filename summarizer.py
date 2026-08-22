@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Iterable
 
-from .news import NewsItem
+from news import NewsItem
 
 
 SYSTEM_PROMPT = """你是一名面向 Binance Square 的全球市场新闻编辑。
